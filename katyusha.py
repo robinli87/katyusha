@@ -7,22 +7,22 @@ import random
 
 class katyusha:
 
-    def __init__(self, initial_velocity):
+    def __init__(self, initial_velocity=[0, 0],
+                 initial_fuel_mass = 42,
+                 shell_mass = 10,
+                 rack_length = 5,
+                 friction_coefficient = 0.75,
+                 dt=0.001):
         #define some features of the missile
-        self.x = [0]#np.array([0])
-        self.y = [0]#np.array([0])
-        self.vx = [initial_velocity[0]]#np.array([initial_velocity[0]])
-        self.vy = [initial_velocity[1]]#np.array([initial_velocity[1]])
-        self.ax = []#np.array([0])
-        self.ay = []#np.array([0])
 
-        self.dt = 0.001
+
+        self.dt = dt
 
         #self.burn_rate = 0.1
-        self.initial_fuel_mass = 42
-        self.shell_mass = 10
-        self.rack_length = 5
-        self.friction_coefficient = 0.75
+        self.initial_fuel_mass = initial_fuel_mass
+        self.shell_mass = shell_mass
+        self.rack_length = rack_length
+        self.friction_coefficient = friction_coefficient
         #self.exhaust_velocity = 340
 
     def burn_rate(self, t):
@@ -62,16 +62,25 @@ class katyusha:
             output.write(str(data) + "\n")
 
     def writeout(self, content):
-        line = ""
-        for item in content:
-            line += str(item) + ","
-
+        length = len(content[0])-1
         with open("track.csv", "a") as output:
-            output.write(line + "\n")
 
-    def launch(self, theta):
+            for i in range(0, length):
+                line = ""
+                for j in range(0, len(content)):
+                    line += str(content[j][i]) + ","
+
+                output.write(line + "\n")
+
+    def launch(self, theta, initial_velocity=[0, 0], log=False):
         #thrush pushes the projectile along the rack, experiencing friction force which is assumed to be constant.
         #the rack is angled at theta
+        self.x = [0]#np.array([0])
+        self.y = [0]#np.array([0])
+        self.vx = [initial_velocity[0]]#np.array([initial_velocity[0]])
+        self.vy = [initial_velocity[1]]#np.array([initial_velocity[1]])
+        self.ax = []#np.array([0])
+        self.ay = []#np.array([0])
         self.t = 0
         dist = 0
         v = [0]
@@ -104,8 +113,7 @@ class katyusha:
             self.x.append(dist[-1] * math.cos(theta))
             self.y.append(dist[-1] * math.sin(theta))
 
-            # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1], self.ax[-1], self.ay[-1],
-            #                force * math.cos(theta), force*math.sin(theta), self.t])
+
 
             #self.log(dist[-1]) #artifacts from testing phase
             self.t += self.dt
@@ -114,28 +122,15 @@ class katyusha:
         if (dist[-1] < self.rack_length):
             print("Launch failed. Not enough thrust to leave the launchpad")
 
+        #the rocket has left the launchpad, now we can consider flight with propulsion
+        #note down the results
 
-        # del v[0]
-        # del dist[0]
-        # v = np.array(v)
-        # dist = np.array(dist)
-        # acceleration = np.array(acceleration)
-        # #submit our results to self
-        # vx = v * math.cos(theta)
-        # vy = v * math.sin(theta)
-        # x = dist * math.cos(theta)
-        # y = dist * math.sin(theta)
-        # ax = acceleration * math.cos(theta)
-        # ay = acceleration * math.sin(theta)
-        # self.ax = np.concatenate([self.ax, ax])
-        # self.ay = np.concatenate([self.ay, ay])
-        # self.vx = np.concatenate([self.vx, vx])
-        # self.vy = np.concatenate([self.vy, vy])
-        # self.x = np.concatenate([self.x, x])
-        # self.y = np.concatenate([self.y, y])
-
-        #the rocket has launched the launchpad, now we can consider flight with propulsion
         result = self.propulsion(theta)
+        duration = len(self.ax)
+
+        if log == True:
+            self.writeout([self.x, self.y, self.vx, self.vy, self.ax, self.ay])
+
         return(result)
 
     def propulsion(self, theta):
@@ -174,8 +169,7 @@ class katyusha:
             dy = 0.5*(self.vy[-1] + self.vy[-2]) * self.dt + 0.5 * self.ay[-1] * self.dt ** 2
             self.y.append(self.y[-1] + dy)
 
-            # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
-            #                self.ax[-1], self.ay[-1], force_x, force_y, self.t])
+
 
             self.t += self.dt
 
@@ -209,7 +203,7 @@ class katyusha:
 
         return(self.x[-1], self.y[-1])
 
-    def backpropagation(self, learning_rate=0.000000001, da=0.00001):
+    def backpropagation(self, learning_rate=10**-9, da=0.00001):
         upper = self.miss(self.angle + da)
         lower = self.miss(self.angle - da)
         gradient = (upper - lower) / (2 * da)
@@ -222,7 +216,7 @@ class katyusha:
         return(error)
 
     def train(self, target):
-        self.angle = random.random() * math.pi/2
+        self.angle = math.pi / 4
         self.target= target
 
         benchmark = self.miss(self.angle)#abs(land[0] - target[0])

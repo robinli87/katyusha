@@ -26,7 +26,7 @@ view = grid.add_view(row=1, col=1, border_color='white')
 
 x = []
 y = []
-t = []
+#t = []
 
 runFlag = True
 
@@ -39,7 +39,7 @@ def update():
             line = nextline.split(",")
             x.append(float(line[0]))
             y.append(float(line[1]))
-            t.append(line[-2])
+            #t.append(line[-2])
             nextline = datafile.readline()
 
 
@@ -48,10 +48,11 @@ def update():
 def plot():
     global xaxis
     global yaxis
+    global plot
     plot = scene.LinePlot((x, y), parent=view.scene, color='b', marker_size=0)
     view.camera = scene.cameras.panzoom.PanZoomCamera(aspect=1, rect=(-100, -100, max(x), max(y)))
     yaxis = scene.AxisWidget(orientation='left',
-                        axis_label='Y Axis',
+                        axis_label='Altitude',
                         axis_font_size=12,
                         axis_label_margin=50,
                         tick_label_margin=5, domain=(0, max(y)))
@@ -59,7 +60,7 @@ def plot():
     grid.add_widget(yaxis, row=1, col=0)
 
     xaxis = scene.AxisWidget(orientation='bottom',
-                            axis_label='X Axis',
+                            axis_label='Horizontal distance',
                             axis_font_size=12,
                             axis_label_margin=50,
                             tick_label_margin=5, domain=(0, max(y)))
@@ -73,10 +74,21 @@ def animate():
     rocket = Rectangle(center=(x[0], y[0]), width=100, height=100, parent=view.scene, color='r')
     for i in range(0, len(x)):
         rocket.center = (x[i], y[i])
-        time.sleep(0.001)
+        title.text = "Time elapsed: " + str(round((i * 0.001), 3)) + " s"
+        #time.sleep(0.001)
+
+def art():
+    with open("parameters.dat", "r") as f:
+        data = f.readline()
+        X, Y = data.split(",")
+        X = float(X)
+        Y = float(Y)
+    enemy = Rectangle(center=(X, Y), width=100, height=100, parent=view.scene, color="g")
+
 
 
 update()
+art()
 plot()
 threading.Thread(target=animate).start()
 #animate()

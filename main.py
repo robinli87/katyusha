@@ -6,19 +6,21 @@ from PyQt6 import uic, QtWidgets
 import sys
 import katyusha
 import math
+import os
 
 open("log.txt", "w")
 with open("track.csv", "w") as outs:
     outs.write("")
 
-kate = katyusha.katyusha([0, 0])
-angle = 30
-friction_coefficient = 0.75
-radians = angle * math.pi / 180
-print(friction_coefficient * math.cos(radians) + math.sin(radians))
-kate.launch(1)
+kate = katyusha.katyusha(dt=0.001)
 
-target_coordinates = [13500, 1000]
+target_coordinates = [13000, 1000]
+with open("parameters.dat", "w") as f:
+    f.write(str(target_coordinates[0]) + ",")
+    f.write(str(target_coordinates[1]) + "\n")
 
+print("searching for optimum angle of launch")
 angle_of_launch = kate.train(target_coordinates)
 print(angle_of_launch)
+kate.launch(angle_of_launch, log=True)
+os.system("python3 plotter2.py")
