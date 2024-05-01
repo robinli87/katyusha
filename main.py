@@ -16,5 +16,9 @@ angle = 30
 friction_coefficient = 0.75
 radians = angle * math.pi / 180
 print(friction_coefficient * math.cos(radians) + math.sin(radians))
-kate.launch_rack(1, radians, friction_coefficient)
+kate.launch(1)
 
+target_coordinates = [13500, 1000]
+
+angle_of_launch = kate.train(target_coordinates)
+print(angle_of_launch)

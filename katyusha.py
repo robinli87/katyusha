@@ -3,6 +3,7 @@
 import math
 import logging
 import numpy as np
+import random
 
 class katyusha:
 
@@ -20,6 +21,8 @@ class katyusha:
         #self.burn_rate = 0.1
         self.initial_fuel_mass = 42
         self.shell_mass = 10
+        self.rack_length = 5
+        self.friction_coefficient = 0.75
         #self.exhaust_velocity = 340
 
     def burn_rate(self, t):
@@ -66,7 +69,7 @@ class katyusha:
         with open("track.csv", "a") as output:
             output.write(line + "\n")
 
-    def launch_rack(self, length, theta, friction_coefficient):
+    def launch(self, theta):
         #thrush pushes the projectile along the rack, experiencing friction force which is assumed to be constant.
         #the rack is angled at theta
         self.t = 0
@@ -78,9 +81,9 @@ class katyusha:
         g = 9.806
 
         #resolve forces in the rotated diagonal frame of the rack surface
-        geometric_factor = friction_coefficient * math.cos(theta) + math.sin(theta)
+        geometric_factor = self.friction_coefficient * math.cos(theta) + math.sin(theta)
 
-        while (dist[-1] <= length) and (self.mass(self.t) > self.shell_mass):
+        while (dist[-1] <= self.rack_length) and (self.mass(self.t) > self.shell_mass):
 
             force = self.thrust(self.t) - self.mass(self.t) * g * geometric_factor - self.drag(v[-1])
 
@@ -101,14 +104,14 @@ class katyusha:
             self.x.append(dist[-1] * math.cos(theta))
             self.y.append(dist[-1] * math.sin(theta))
 
-            self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1], self.ax[-1], self.ay[-1],
-                           force * math.cos(theta), force*math.sin(theta), self.t])
+            # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1], self.ax[-1], self.ay[-1],
+            #                force * math.cos(theta), force*math.sin(theta), self.t])
 
             #self.log(dist[-1]) #artifacts from testing phase
             self.t += self.dt
 
         #if the rocket doesn't generate enough thrust, it stays there instead of sinking into the ground'
-        if (dist[-1] < length):
+        if (dist[-1] < self.rack_length):
             print("Launch failed. Not enough thrust to leave the launchpad")
 
 
@@ -132,7 +135,8 @@ class katyusha:
         # self.y = np.concatenate([self.y, y])
 
         #the rocket has launched the launchpad, now we can consider flight with propulsion
-        self.propulsion(theta)
+        result = self.propulsion(theta)
+        return(result)
 
     def propulsion(self, theta):
         g = 9.806
@@ -170,12 +174,13 @@ class katyusha:
             dy = 0.5*(self.vy[-1] + self.vy[-2]) * self.dt + 0.5 * self.ay[-1] * self.dt ** 2
             self.y.append(self.y[-1] + dy)
 
-            self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
-                           self.ax[-1], self.ay[-1], force_x, force_y, self.t])
+            # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
+            #                self.ax[-1], self.ay[-1], force_x, force_y, self.t])
 
             self.t += self.dt
 
-        self.ballistic()
+        result = self.ballistic()
+        return(result)
 
 
     def ballistic(self, target=[0,0]):
@@ -196,13 +201,46 @@ class katyusha:
 
             self.x.append(self.x[-1] + self.vx[-1] * self.dt + self.ax[-1]*0.5* self.dt**2)
             self.y.append(self.y[-1] + self.vy[-1] * self.dt + self.ay[-1]*0.5* self.dt**2)
-
-            self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
-                           self.ax[-1], self.ay[-1], force_x, force_y, self.t])
+            #
+            # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
+            #                self.ax[-1], self.ay[-1], force_x, force_y, self.t])
 
             self.t += self.dt
 
         return(self.x[-1], self.y[-1])
+
+    def backpropagation(self, learning_rate=0.000000001, da=0.00001):
+        upper = self.miss(self.angle + da)
+        lower = self.miss(self.angle - da)
+        gradient = (upper - lower) / (2 * da)
+        #print(gradient)
+        self.angle -= learning_rate * gradient
+
+    def miss(self, theta):
+        land = self.launch(theta)
+        error = (land[0] - self.target[0]) ** 2
+        return(error)
+
+    def train(self, target):
+        self.angle = random.random() * math.pi/2
+        self.target= target
+
+        benchmark = self.miss(self.angle)#abs(land[0] - target[0])
+        print("benchmark: ", benchmark)
+        self.backpropagation()
+
+        new_miss = self.miss(self.angle)
+        print("new_miss: ", new_miss)
+
+        while new_miss < benchmark:
+            benchmark = new_miss
+            self.backpropagation()
+            new_miss = self.miss(self.angle)
+            print("new_miss: ", new_miss)
+
+        return(self.angle)
+
+
 
 
 
