@@ -15,6 +15,7 @@ Fuel burning and mass changes
 Specific impulse
 
 To be improved on:
-1. Considerations of rotation in flight
+1. Variable burn rate controls
 2. Varying air pressure, density and viscosity with altitude
 3. Find the angle of launch required to hit a target at (x,y)
+4. Consider the Earth as a sphere and metric distortions (e.g Schwarzschild Metric).
