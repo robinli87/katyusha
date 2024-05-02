@@ -8,11 +8,12 @@ import random
 class katyusha:
 
     def __init__(self, initial_velocity=[0, 0],
-                 initial_fuel_mass = 42,
-                 shell_mass = 10,
+                 initial_fuel_mass = 630,
+                 shell_mass = 20,
                  rack_length = 5,
                  friction_coefficient = 0.75,
-                 dt=0.001):
+                 dt=0.001,
+                 target=[0, 0]):
         #define some features of the missile
 
 
@@ -23,15 +24,16 @@ class katyusha:
         self.shell_mass = shell_mass
         self.rack_length = rack_length
         self.friction_coefficient = friction_coefficient
+        self.target = target
         #self.exhaust_velocity = 340
 
     def burn_rate(self, t):
         #leaves the potential for controllable burn rate, especially for solid fuel
-        return(1)
+        return(40)
 
     def exhaust_velocity(self, t):
         #potential for variable exhaust_velocity
-        return(2700)
+        return(2100)
 
     def thrust(self, t):
         #leaves the potential for programmable thrust
@@ -48,9 +50,9 @@ class katyusha:
             return(self.shell_mass)
 
     def drag(self, speed):
-        k1 = 0.0363
-        k2 = 4*10**-5
-        k3 = 10**-5
+        k1 = 0.0363 * math.exp(-self.y[-1] / 5000)
+        k2 = 4*10**-5 * math.exp(-self.y[-1] / 5000)
+        k3 = 10**-5 * math.exp(-self.y[-1] / 5000)
         bernoulli = k1 * speed ** 2
         stokes = k2 * speed
         skin = k3 * speed ** 1.5
@@ -82,6 +84,8 @@ class katyusha:
         self.ax = []#np.array([0])
         self.ay = []#np.array([0])
         self.t = 0
+        self.phi = [theta]
+        self.angular_velocity = [0]
         dist = 0
         v = [0]
         acceleration = []
@@ -113,7 +117,8 @@ class katyusha:
             self.x.append(dist[-1] * math.cos(theta))
             self.y.append(dist[-1] * math.sin(theta))
 
-
+            self.phi.append(theta)
+            self.angular_velocity.append(0)
 
             #self.log(dist[-1]) #artifacts from testing phase
             self.t += self.dt
@@ -131,10 +136,22 @@ class katyusha:
         if log == True:
             self.writeout([self.x, self.y, self.vx, self.vy, self.ax, self.ay])
 
+        #print(self.t)
+
         return(result)
 
     def propulsion(self, theta):
         g = 9.806
+
+
+        self.rocket_length = 5
+        self.shift = -self.t / 10
+
+        global k5
+        global k4
+        k5 = 10**-5
+        k4 = 40
+
 
         while self.mass(self.t) > self.shell_mass:
             #fuel is not fully burnt
@@ -142,12 +159,12 @@ class katyusha:
             speed = (speed_squared) ** 0.5
 
             #first resolve horizontal component
-            thrust_x = self.thrust(self.t) * math.cos(theta)
+            thrust_x = self.thrust(self.t) * math.cos(self.phi[-1])
             drag_x = self.drag(speed) * self.vx[-1] / speed
             force_x = thrust_x - drag_x
 
             #now the vertical component
-            thrust_y = self.thrust(self.t) * math.sin(theta)
+            thrust_y = self.thrust(self.t) * math.sin(self.phi[-1])
             drag_y = self.drag(speed) * self.vy[-1] / speed
             weight_y = self.mass(self.t) * g
             force_y = thrust_y - drag_y - weight_y
@@ -169,7 +186,13 @@ class katyusha:
             dy = 0.5*(self.vy[-1] + self.vy[-2]) * self.dt + 0.5 * self.ay[-1] * self.dt ** 2
             self.y.append(self.y[-1] + dy)
 
-
+            #consider rotational effects due to centre of mass deviation
+            sin_alpha = ((self.vx[-1] + self.vx[-2]) * math.sin(self.phi[-1])/ speed - (self.vy[-1] + self.vy[-2]) * math.cos(self.phi[-1]) / speed)
+            torque = k4 * speed_squared * sin_alpha * self.shift - k5 * self.rocket_length * self.angular_velocity[-1]**2
+            I = self.mass(self.t) * self.rocket_length**2 / 24
+            angular_acc = torque / I
+            self.angular_velocity.append(self.angular_velocity[-1] + self.dt * angular_acc)
+            self.phi.append(self.phi[-1] + self.angular_velocity[-1] * self.dt + angular_acc * 0.5 * self.dt**2)
 
             self.t += self.dt
 
@@ -199,25 +222,41 @@ class katyusha:
             # self.writeout([self.x[-1], self.y[-1], self.vx[-1], self.vy[-1],
             #                self.ax[-1], self.ay[-1], force_x, force_y, self.t])
 
+            sin_alpha = ((self.vx[-1] + self.vx[-2]) * math.sin(self.phi[-1])/ speed - (self.vy[-1] + self.vy[-2]) * math.cos(self.phi[-1]) / speed)
+            torque = k4 * speed_squared * sin_alpha * self.shift - k5 * self.rocket_length * self.angular_velocity[-1]
+            I = self.mass(self.t) * self.rocket_length**2 / 24
+            angular_acc = torque / I
+            self.angular_velocity.append(self.angular_velocity[-1] + self.dt * angular_acc)
+            self.phi.append(self.phi[-1] + self.angular_velocity[-1] * self.dt + angular_acc * 0.5 * self.dt**2)
+
             self.t += self.dt
 
         return(self.x[-1], self.y[-1])
 
-    def backpropagation(self, learning_rate=10**-9, da=0.00001):
-        upper = self.miss(self.angle + da)
-        lower = self.miss(self.angle - da)
+    def backpropagation(self, learning_rate=10**-9, da=0.000001):
+        anglecopy = self.angle
+        upper = self.miss(anglecopy + da)
+        lower = self.miss(anglecopy - da)
         gradient = (upper - lower) / (2 * da)
         #print(gradient)
-        self.angle -= learning_rate * gradient
+        #modifier = learning_rate * gradient * math.exp(-self.epoch/ 10)
+        if gradient > 0:
+            self.angle -= 0.01 * math.exp(-self.epoch / 10)
+        elif gradient <0:
+            self.angle += 0.01 * math.exp(-self.epoch / 10)
 
     def miss(self, theta):
         land = self.launch(theta)
-        error = (land[0] - self.target[0]) ** 2
+        error = (land[0] - self.target[0]) ** 2 + (land[1] - self.target[1])**2
+        #need to damp the error to within a reasonable range
         return(error)
 
     def train(self, target):
+
+        # stochastic gradient descent fails for extreme training. We need an alternative method, e.g. reward training.
         self.angle = math.pi / 4
         self.target= target
+        self.epoch = 0
 
         benchmark = self.miss(self.angle)#abs(land[0] - target[0])
         print("benchmark: ", benchmark)
@@ -226,11 +265,13 @@ class katyusha:
         new_miss = self.miss(self.angle)
         print("new_miss: ", new_miss)
 
-        while new_miss < benchmark:
+        while new_miss > 5:
             benchmark = new_miss
             self.backpropagation()
             new_miss = self.miss(self.angle)
             print("new_miss: ", new_miss)
+            print("angle: ", self.angle)
+            self.epoch += 1
 
         return(self.angle)
 

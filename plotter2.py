@@ -88,9 +88,9 @@ def art():
 
 
 update()
-art()
+#art()
 plot()
-threading.Thread(target=animate).start()
+#threading.Thread(target=animate).start()
 #animate()
 
 app.run()
