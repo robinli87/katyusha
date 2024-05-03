@@ -9,15 +9,33 @@ class katyusha:
 
     def __init__(self, initial_velocity=[0, 0],
                  initial_fuel_mass = 630,
-                 shell_mass = 20,
+                 shell_mass = 30,
                  rack_length = 5,
                  friction_coefficient = 0.75,
                  dt=0.001,
-                 target=[0, 0]):
+                 target=[0, 0],
+                 rocket_length=2,
+                 COMshift=0,
+                 flaps_size=40,
+                 rotation_resistance=10**-4,
+                 bernoulli_coefficient=0.0363,
+                 stokes_drag_coefficient=4*10**-5,
+                 skin_drag_coefficient=10**-5,
+                 specific_impulse=None,
+                 fuel_burn_rate=None):
         #define some features of the missile
-
+        #variables placed here are externally accessible
 
         self.dt = dt
+        self.x = [0]#np.array([0])
+        self.y = [0]#np.array([0])
+        self.vx = [initial_velocity[0]]#np.array([initial_velocity[0]])
+        self.vy = [initial_velocity[1]]#np.array([initial_velocity[1]])
+        self.ax = []#np.array([0])
+        self.ay = []#np.array([0])
+        self.t = 0
+        #self.phi = [theta]
+        self.angular_velocity = [0]
 
         #self.burn_rate = 0.1
         self.initial_fuel_mass = initial_fuel_mass
@@ -25,15 +43,31 @@ class katyusha:
         self.rack_length = rack_length
         self.friction_coefficient = friction_coefficient
         self.target = target
+        self.rocket_length = rocket_length
+        self.shift = COMshift
+        self.COMshift = COMshift
+        self.flaps_size = flaps_size
+        self.rotation_resistance = rotation_resistance
+        self.bernoulli_coefficient = bernoulli_coefficient
+        self.stokes_drag_coefficient = stokes_drag_coefficient
+        self.skin_drag_coefficient = skin_drag_coefficient
+        self.specific_impulse = specific_impulse
+        self.fuel_burn_rate = fuel_burn_rate
         #self.exhaust_velocity = 340
 
     def burn_rate(self, t):
         #leaves the potential for controllable burn rate, especially for solid fuel
-        return(40)
+        if self.fuel_burn_rate == None:
+            return(40)
+        else:
+            return(self.fuel_burn_rate)
 
     def exhaust_velocity(self, t):
         #potential for variable exhaust_velocity
-        return(2100)
+        if self.specific_impulse ==0:
+            return(2100) #a default value
+        else:
+            return(self.specific_impulse)
 
     def thrust(self, t):
         #leaves the potential for programmable thrust
@@ -50,9 +84,9 @@ class katyusha:
             return(self.shell_mass)
 
     def drag(self, speed):
-        k1 = 0.0363 * math.exp(-self.y[-1] / 5000)
-        k2 = 4*10**-5 * math.exp(-self.y[-1] / 5000)
-        k3 = 10**-5 * math.exp(-self.y[-1] / 5000)
+        k1 = self.bernoulli_coefficient * math.exp(-self.y[-1] / 5000)
+        k2 = self.stokes_drag_coefficient * math.exp(-self.y[-1] / 5000)
+        k3 = self.skin_drag_coefficient * math.exp(-self.y[-1] / 5000)
         bernoulli = k1 * speed ** 2
         stokes = k2 * speed
         skin = k3 * speed ** 1.5
@@ -137,21 +171,12 @@ class katyusha:
             self.writeout([self.x, self.y, self.vx, self.vy, self.ax, self.ay])
 
         #print(self.t)
+        self.log(self.t)
 
-        return(result)
+        return(self.x, self.y)
 
     def propulsion(self, theta):
         g = 9.806
-
-
-        self.rocket_length = 5
-        self.shift = -self.t / 10
-
-        global k5
-        global k4
-        k5 = 10**-5
-        k4 = 40
-
 
         while self.mass(self.t) > self.shell_mass:
             #fuel is not fully burnt
@@ -188,11 +213,15 @@ class katyusha:
 
             #consider rotational effects due to centre of mass deviation
             sin_alpha = ((self.vx[-1] + self.vx[-2]) * math.sin(self.phi[-1])/ speed - (self.vy[-1] + self.vy[-2]) * math.cos(self.phi[-1]) / speed)
-            torque = k4 * speed_squared * sin_alpha * self.shift - k5 * self.rocket_length * self.angular_velocity[-1]**2
+            torque = self.flaps_size * speed_squared * sin_alpha * self.shift - self.rotation_resistance * self.rocket_length * self.angular_velocity[-1]**2
             I = self.mass(self.t) * self.rocket_length**2 / 24
             angular_acc = torque / I
             self.angular_velocity.append(self.angular_velocity[-1] + self.dt * angular_acc)
             self.phi.append(self.phi[-1] + self.angular_velocity[-1] * self.dt + angular_acc * 0.5 * self.dt**2)
+
+            if abs(self.shift) <= self.rocket_length*0.8: #impose a payload
+                self.shift -= self.burn_rate(self.t) * self.dt / (self.mass(self.t) * self.rocket_length)
+                #centre of mass shifts forward as more fuel is consumed
 
             self.t += self.dt
 
@@ -223,7 +252,7 @@ class katyusha:
             #                self.ax[-1], self.ay[-1], force_x, force_y, self.t])
 
             sin_alpha = ((self.vx[-1] + self.vx[-2]) * math.sin(self.phi[-1])/ speed - (self.vy[-1] + self.vy[-2]) * math.cos(self.phi[-1]) / speed)
-            torque = k4 * speed_squared * sin_alpha * self.shift - k5 * self.rocket_length * self.angular_velocity[-1]
+            torque = self.flaps_size * speed_squared * sin_alpha * self.shift - self.rotation_resistance * self.rocket_length * self.angular_velocity[-1]
             I = self.mass(self.t) * self.rocket_length**2 / 24
             angular_acc = torque / I
             self.angular_velocity.append(self.angular_velocity[-1] + self.dt * angular_acc)
