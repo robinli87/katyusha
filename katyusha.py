@@ -237,7 +237,7 @@ class katyusha:
             speed_squared = self.vx[-1]**2 + self.vy[-1]**2
             speed = (speed_squared) ** 0.5
 
-            force_x = -self.drag(speed) * self.vx[-1] / (speed * self.mass(self.t))
+            force_x = -self.drag(speed) * self.vx[-1] / (speed)
             self.ax.append(force_x / self.mass(self.t))
             force_y = -self.drag(speed) * self.vy[-1] / speed - self.mass(self.t) * g
             self.ay.append(force_y / self.mass(self.t))
